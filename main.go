@@ -4,14 +4,15 @@
 package main
 
 import (
+	"context"
 	"errors"
 	"fmt"
+	"io"
 	"log"
 	"net"
 	"os"
 	"os/signal"
 	"slices"
-	"strconv"
 	"strings"
 	"syscall"
 
@@ -19,8 +20,6 @@ import (
 )
 
 const (
-	maxUsersTotal = 1024 // limit the number of pairs user/password
-
 	envHost   = "PROXY_HOST"    // proxy host to listen to
 	envPort   = "PROXY_PORT"    // port number, 1080 defaults
 	envBindIP = "PROXY_BIND_IP" // ipv4/ipv6 address to make BIND socks5 operations
@@ -31,11 +30,6 @@ const (
 func main() {
 	// options
 	opts, err := getOpts()
-	if err != nil {
-		log.Fatal(err)
-	}
-
-	port, err := getPort()
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -56,8 +50,7 @@ func main() {
 	}()
 
 	// start socks5 proxy
-	addr := fmt.Sprintf("%s:%d", os.Getenv(envHost), port)
-
+	addr := net.JoinHostPort(os.Getenv(envHost), getPort())
 	log.Println("starting on", addr)
 
 	if err := srv.ListenAndServe("tcp", addr); err != nil {
@@ -65,99 +58,85 @@ func main() {
 	}
 }
 
-func getPort() (int, error) {
+func getPort() string {
 	const defaultPort = "1080"
 
-	port := defaultPort
 	if p := os.Getenv(envPort); p != "" {
-		port = p
+		return p
 	}
-
-	n, err := strconv.Atoi(port)
-	if err != nil || n <= 0 || n >= 1<<16 {
-		return 0, fmt.Errorf("given invalid port: %q", port)
-	}
-
-	return n, nil
+	return defaultPort
 }
 
-// nolint
 func getOpts() (proxyme.Options, error) {
-	// Examples:
 	// PROXY_BIND_IP=x.x.x.x
 	// PROXY_NOAUTH=yes
 	// PROXY_USERS=admin:admin,secret:pass
-
 	// env PROXY_BIND_IP enables socks5 BIND operations
-	bindIP := os.Getenv(envBindIP)
-	if bindIP != "" && net.ParseIP(bindIP) == nil {
-		return proxyme.Options{}, fmt.Errorf("failed to configure proxy: invalid bind IP: %q", bindIP)
-	}
 
-	// env PROXY_NOAUTH=yes enables noAuth method of socks5 authentication flow
+	// enable noauth authenticate method if given
 	noauth := slices.Contains([]string{"yes", "true", "1"}, strings.ToLower(os.Getenv(envNoAuth)))
 
-	// make user database
-	users, err := getUsers()
+	// enable username/password authenticate method if given
+	users, err := newUAM(os.Getenv(envUsers))
 	if err != nil {
 		return proxyme.Options{}, err
 	}
 
 	var authenticate func(username, password []byte) error
-	if users.Len() > 0 {
-		// enable username/password authentication
-		authenticate = func(username, password []byte) error {
-			denied := errors.New("authentication failed: invalid username or password")
-
-			if len(username) == 0 || len(password) == 0 {
-				return denied
-			}
-
-			if users.Get(string(username)) != string(password) {
-				return denied
-			}
-
-			return nil
-		}
+	if users.len() > 0 {
+		authenticate = users.authenticate
 	}
+
+	// todo enable gssapi authenticate method if given
 
 	opts := proxyme.Options{
 		AllowNoAuth:  noauth,
 		Authenticate: authenticate,
-		//GSSAPI:       nil,
-		//Connect:      nil,
-		BindIP:   net.ParseIP(bindIP),
-		Resolver: defaultDomainResolver,
+		GSSAPI:       nil,
+		Connect:      customConnect,
+		BindIP:       nil,
+		MaxConnIdle:  0,
 	}
 
 	return opts, nil
 }
 
-func getUsers() (*keyValueDB, error) {
-	users := &keyValueDB{
-		data:    make(map[string]string),
-		maxSize: maxUsersTotal,
+// customConnect connects to remote server using dns resolver with lru cache
+func customConnect(ctx context.Context, addressType int, addr []byte, port string) (io.ReadWriteCloser, error) {
+	const domainType = 3
+
+	// get the ip addr
+	ip := net.IP(addr)
+	if addressType == domainType {
+		dip, err := defaultDomainResolver(ctx, addr)
+		if err != nil {
+			return nil, fmt.Errorf("%w: %v", proxyme.ErrHostUnreachable, err)
+		}
+
+		ip = dip
 	}
 
-	// env PROXY_USERS=user:pass enables username/password method of socks5 authentication flow
-	for _, cred := range strings.Split(os.Getenv(envUsers), ",") {
-		if cred == "" {
-			continue
-		}
+	dialAddr := net.JoinHostPort(ip.String(), port)
 
-		parts := strings.Split(cred, ":")
-		if len(parts) != 2 {
-			return nil, fmt.Errorf("failed to add users: invalid user/pass string %q", cred)
+	d := net.Dialer{}
+	conn, err := d.DialContext(ctx, "tcp", dialAddr)
+	if err != nil {
+		if errors.Is(err, syscall.EHOSTUNREACH) {
+			return conn, fmt.Errorf("%w: %v", proxyme.ErrHostUnreachable, err)
 		}
-
-		if parts[0] == "" || parts[1] == "" {
-			return nil, fmt.Errorf("failed to add users: user/password must be a non empty string: %q", cred)
+		if errors.Is(err, syscall.ECONNREFUSED) {
+			return conn, fmt.Errorf("%w: %v", proxyme.ErrConnectionRefused, err)
 		}
-
-		if err := users.Add(parts[0], parts[1]); err != nil {
-			return nil, fmt.Errorf("failed to add users: %w", err)
+		if errors.Is(err, syscall.ENETUNREACH) {
+			return conn, fmt.Errorf("%w: %v", proxyme.ErrNetworkUnreachable, err)
 		}
+		if errors.Is(err, os.ErrDeadlineExceeded) {
+			return conn, fmt.Errorf("%w: %v", proxyme.ErrTTLExpired, err)
+		}
+		return conn, err
 	}
 
-	return users, nil
+	_ = conn.(*net.TCPConn).SetLinger(0) // nolint
+
+	return conn, nil
 }

@@ -7,8 +7,7 @@ import (
 )
 
 // keyValueDB simple kv mem storage that doesn't allow key duplications.
-// Also it limited size by specifying maxSize.
-// Concurrent safe.
+// Also it is limited size by specifying maxSize.
 type keyValueDB struct {
 	data    map[string]string
 	mu      sync.Mutex
@@ -20,12 +19,12 @@ func (d *keyValueDB) Add(key, val string) error {
 	d.mu.Lock()
 	defer d.mu.Unlock()
 
-	if len(d.data) > d.maxSize {
-		return errors.New("too much entries")
-	}
-
 	if _, ok := d.data[key]; ok {
 		return fmt.Errorf("%q is already exists", key)
+	}
+
+	if len(d.data) >= d.maxSize {
+		return errors.New("too much entries")
 	}
 
 	d.data[key] = val
