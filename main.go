@@ -68,11 +68,6 @@ func getPort() string {
 }
 
 func getOpts() (proxyme.Options, error) {
-	// PROXY_BIND_IP=x.x.x.x
-	// PROXY_NOAUTH=yes
-	// PROXY_USERS=admin:admin,secret:pass
-	// env PROXY_BIND_IP enables socks5 BIND operations
-
 	// enable noauth authenticate method if given
 	noauth := slices.Contains([]string{"yes", "true", "1"}, strings.ToLower(os.Getenv(envNoAuth)))
 
@@ -87,15 +82,21 @@ func getOpts() (proxyme.Options, error) {
 		authenticate = users.authenticate
 	}
 
-	// todo enable gssapi authenticate method if given
+	// enable BIND operation if given
+	var bindListen func() (net.Listener, error)
+	if bind := os.Getenv(envBindIP); bind != "" {
+		bindListen = func() (net.Listener, error) {
+			return net.Listen("tcp", fmt.Sprintf("%s:0", bind))
+		}
+	}
 
+	// todo enable gssapi authenticate method if given
 	opts := proxyme.Options{
 		AllowNoAuth:  noauth,
 		Authenticate: authenticate,
 		GSSAPI:       nil,
 		Connect:      customConnect,
-		BindIP:       nil,
-		MaxConnIdle:  0,
+		BindListen:   bindListen,
 	}
 
 	return opts, nil
