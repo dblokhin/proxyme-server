@@ -66,7 +66,7 @@ You can also run the socks5 proxy within a Docker container manually.
 1. **Clone the repository:**
    ```bash
    git clone https://github.com/dblokhin/proxyme-server
-   cd proxyme
+   cd proxyme-server
    ```
 
 2. **Build the binary:**
