@@ -3,3 +3,5 @@ github.com/dblokhin/proxyme v0.1.5 h1:1W6ooIONftzsDrxDRfNgJDrfcAaor/alk73hQV22Ke
 github.com/dblokhin/proxyme v0.1.5/go.mod h1:i8qi8/WloeCWK66k4t35L8O7e+sND/LgtufUr7Sl2W8=
 github.com/dblokhin/proxyme v0.2.0 h1:/izJ1pA2ojOksCgZzo3QHQvfq3z18Q0QVjeSPaSo6JE=
 github.com/dblokhin/proxyme v0.2.0/go.mod h1:i8qi8/WloeCWK66k4t35L8O7e+sND/LgtufUr7Sl2W8=
+github.com/dblokhin/proxyme v0.2.1 h1:IdJZgJcpw6S8/Ux8sXDz0RJcjCXT7breKq66DgJMzq0=
+github.com/dblokhin/proxyme v0.2.1/go.mod h1:i8qi8/WloeCWK66k4t35L8O7e+sND/LgtufUr7Sl2W8=

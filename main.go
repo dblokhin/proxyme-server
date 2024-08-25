@@ -13,6 +13,7 @@ import (
 	"os"
 	"os/signal"
 	"syscall"
+	"time"
 
 	"github.com/dblokhin/proxyme"
 )
@@ -26,8 +27,7 @@ const (
 )
 
 func main() {
-	ctx, stop := signal.NotifyContext(context.TODO(), syscall.SIGTERM, syscall.SIGINT)
-	defer stop()
+	ctx, _ := signal.NotifyContext(context.TODO(), syscall.SIGTERM, syscall.SIGINT)
 
 	go func() {
 		<-ctx.Done()
@@ -66,8 +66,14 @@ func runMain(ctx context.Context) error {
 }
 
 // customConnect connects to remote server using dns resolver with lru cache
-func customConnect(ctx context.Context, addressType int, addr []byte, port string) (io.ReadWriteCloser, error) {
-	const domainType = 3
+func customConnect(addressType int, addr []byte, port string) (io.ReadWriteCloser, error) {
+	const (
+		maxConnTime = 10 * time.Second
+		domainType  = 3
+	)
+
+	ctx, cancel := context.WithTimeout(context.TODO(), maxConnTime)
+	defer cancel()
 
 	// get the ip addr
 	ip := net.IP(addr)

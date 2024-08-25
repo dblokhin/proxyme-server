@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"io"
 	"log"
 	"net"
 	"sync"
@@ -51,10 +52,52 @@ func (s server) ListenAndServe(ctx context.Context, address string) error {
 		wg.Add(1)
 		go func() {
 			defer wg.Done()
+			tcpConn := conn.(*net.TCPConn)
+			_ = tcpConn.SetLinger(0)
 
-			s.protocol.Handle(conn.(*net.TCPConn), func(err error) {
+			// set up keep alive options, todo: make it configurable?
+			_ = tcpConn.SetKeepAliveConfig(net.KeepAliveConfig{
+				Enable:   true,
+				Idle:     20 * time.Second,
+				Interval: 10 * time.Second,
+				Count:    5,
+			})
+
+			// set up deadline for idle connections
+			conn := tcpConnWithTimeout{
+				TCPConn: tcpConn,
+				timeout: 3 * time.Minute,
+			}
+
+			// run socks
+			s.protocol.Handle(conn, func(err error) {
 				log.Println(err)
 			})
 		}()
 	}
+}
+
+type tcpConnWithTimeout struct {
+	*net.TCPConn
+	timeout time.Duration
+}
+
+func (t tcpConnWithTimeout) ReadFrom(r io.Reader) (n int64, err error) {
+	_ = t.TCPConn.SetDeadline(time.Now().Add(t.timeout)) // nolint
+	return t.TCPConn.ReadFrom(r)
+}
+
+func (t tcpConnWithTimeout) WriteTo(w io.Writer) (n int64, err error) {
+	_ = t.TCPConn.SetDeadline(time.Now().Add(t.timeout)) // nolint
+	return t.TCPConn.WriteTo(w)
+}
+
+func (t tcpConnWithTimeout) Write(p []byte) (n int, err error) {
+	_ = t.TCPConn.SetDeadline(time.Now().Add(t.timeout)) // nolint
+	return t.TCPConn.Write(p)
+}
+
+func (t tcpConnWithTimeout) Read(p []byte) (n int, err error) {
+	_ = t.TCPConn.SetDeadline(time.Now().Add(t.timeout)) // nolint
+	return t.TCPConn.Read(p)
 }
