@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"log"
 	"net"
 	"sync"
 	"time"
@@ -31,7 +32,7 @@ func (s server) ListenAndServe(ctx context.Context, address string) error {
 
 	var wg sync.WaitGroup
 	defer func() {
-		fmt.Println("waiting all connections be closed")
+		log.Println("waiting all connections be closed")
 		wg.Wait()
 	}()
 
@@ -52,7 +53,7 @@ func (s server) ListenAndServe(ctx context.Context, address string) error {
 			defer wg.Done()
 
 			s.protocol.Handle(conn.(*net.TCPConn), func(err error) {
-				fmt.Println(err)
+				log.Println(err)
 			})
 		}()
 	}

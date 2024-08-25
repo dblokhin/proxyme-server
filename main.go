@@ -26,8 +26,8 @@ const (
 )
 
 func main() {
-	ctx := context.Background()
-	signal.NotifyContext(ctx, syscall.SIGTERM, syscall.SIGINT)
+	ctx, stop := signal.NotifyContext(context.TODO(), syscall.SIGTERM, syscall.SIGINT)
+	defer stop()
 
 	go func() {
 		<-ctx.Done()
