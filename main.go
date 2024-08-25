@@ -12,8 +12,6 @@ import (
 	"net"
 	"os"
 	"os/signal"
-	"slices"
-	"strings"
 	"syscall"
 
 	"github.com/dblokhin/proxyme"
@@ -28,78 +26,43 @@ const (
 )
 
 func main() {
-	// options
-	opts, err := getOpts()
-	if err != nil {
-		log.Fatal(err)
-	}
+	ctx := context.Background()
+	signal.NotifyContext(ctx, syscall.SIGTERM, syscall.SIGINT)
 
-	srv, err := proxyme.New(opts)
-	if err != nil {
-		log.Fatal(err)
-	}
-
-	// graceful shutdown
-	sig := make(chan os.Signal, 1)
-	signal.Notify(sig, syscall.SIGTERM, syscall.SIGINT)
 	go func() {
-		<-sig
+		<-ctx.Done()
 		log.Println("shutdown proxyme")
-		srv.Close()
-		os.Exit(0)
 	}()
 
-	// start socks5 proxy
-	addr := net.JoinHostPort(os.Getenv(envHost), getPort())
-	log.Println("starting on", addr)
+	if err := runMain(ctx); err != nil {
+		log.Fatal(err)
+	}
+}
 
-	if err := srv.ListenAndServe("tcp", addr); err != nil {
+// runMain returns error for os.Exit(1)
+func runMain(ctx context.Context) error {
+	opts, err := parseOptions()
+	if err != nil {
+		return fmt.Errorf("parse options: %w", err)
+	}
+
+	socks5, err := proxyme.New(opts)
+	if err != nil {
+		return fmt.Errorf("init socks5 protocol: %w", err)
+	}
+
+	srv := server{socks5}
+	host := os.Getenv(envHost)
+	port := getPort()
+	addr := net.JoinHostPort(host, port)
+
+	// start socks5 proxy
+	log.Println("starting on", addr)
+	if err := srv.ListenAndServe(ctx, addr); err != nil {
 		log.Println(err)
 	}
-}
 
-func getPort() string {
-	const defaultPort = "1080"
-
-	if p := os.Getenv(envPort); p != "" {
-		return p
-	}
-	return defaultPort
-}
-
-func getOpts() (proxyme.Options, error) {
-	// enable noauth authenticate method if given
-	noauth := slices.Contains([]string{"yes", "true", "1"}, strings.ToLower(os.Getenv(envNoAuth)))
-
-	// enable username/password authenticate method if given
-	users, err := newUAM(os.Getenv(envUsers))
-	if err != nil {
-		return proxyme.Options{}, err
-	}
-
-	var authenticate func(username, password []byte) error
-	if users.len() > 0 {
-		authenticate = users.authenticate
-	}
-
-	// enable BIND operation if given
-	var bindListen func() (net.Listener, error)
-	if bind := os.Getenv(envBindIP); bind != "" {
-		bindListen = func() (net.Listener, error) {
-			return net.Listen("tcp", fmt.Sprintf("%s:0", bind))
-		}
-	}
-
-	// todo enable gssapi authenticate method if given
-	opts := proxyme.Options{
-		AllowNoAuth:  noauth,
-		Authenticate: authenticate,
-		GSSAPI:       nil,
-		Connect:      customConnect,
-		BindListen:   bindListen,
-	}
-
-	return opts, nil
+	return nil
 }
 
 // customConnect connects to remote server using dns resolver with lru cache
