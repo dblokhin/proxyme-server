@@ -72,7 +72,7 @@ func (s server) serve(tcpConn *net.TCPConn) {
 	// set up deadline for idle connections
 	conn := tcpConnWithTimeout{
 		TCPConn: tcpConn,
-		timeout: 3 * time.Minute,
+		timeout: time.Hour,
 	}
 
 	defer conn.Close() //nolint
