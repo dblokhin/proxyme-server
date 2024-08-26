@@ -7,7 +7,6 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"io"
 	"log"
 	"net"
 	"os"
@@ -66,7 +65,7 @@ func runMain(ctx context.Context) error {
 }
 
 // customConnect connects to remote server using dns resolver with lru cache
-func customConnect(addressType int, addr []byte, port string) (io.ReadWriteCloser, error) {
+func customConnect(addressType int, addr []byte, port string) (net.Conn, error) {
 	const (
 		maxConnTime = 10 * time.Second
 		domainType  = 3
