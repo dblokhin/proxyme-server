@@ -13,6 +13,14 @@ import (
 	"github.com/dblokhin/proxyme"
 )
 
+// todo: make it configurable?
+var keepAliveConfig = net.KeepAliveConfig{
+	Enable:   true,
+	Idle:     20 * time.Second,
+	Interval: 5 * time.Second,
+	Count:    5,
+}
+
 type server struct {
 	protocol *proxyme.SOCKS5
 }
@@ -52,29 +60,27 @@ func (s server) ListenAndServe(ctx context.Context, address string) error {
 		wg.Add(1)
 		go func() {
 			defer wg.Done()
-			tcpConn := conn.(*net.TCPConn)
-			_ = tcpConn.SetLinger(0)
-
-			// set up keep alive options, todo: make it configurable?
-			_ = tcpConn.SetKeepAliveConfig(net.KeepAliveConfig{
-				Enable:   true,
-				Idle:     20 * time.Second,
-				Interval: 10 * time.Second,
-				Count:    5,
-			})
-
-			// set up deadline for idle connections
-			conn := tcpConnWithTimeout{
-				TCPConn: tcpConn,
-				timeout: 3 * time.Minute,
-			}
-
-			// run socks
-			s.protocol.Handle(conn, func(err error) {
-				log.Println(err)
-			})
+			s.serve(conn.(*net.TCPConn))
 		}()
 	}
+}
+
+func (s server) serve(tcpConn *net.TCPConn) {
+	_ = tcpConn.SetLinger(0)
+	_ = tcpConn.SetKeepAliveConfig(keepAliveConfig)
+
+	// set up deadline for idle connections
+	conn := tcpConnWithTimeout{
+		TCPConn: tcpConn,
+		timeout: 3 * time.Minute,
+	}
+
+	defer conn.Close() //nolint
+
+	// run socks
+	s.protocol.Handle(conn, func(err error) {
+		log.Println(err)
+	})
 }
 
 type tcpConnWithTimeout struct {
