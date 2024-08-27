@@ -8,7 +8,7 @@ import (
 
 const maxUsersTotal = 1024 // limit the number of pairs user/password
 
-var errDenied = errors.New("authentication failed: invalid username or password")
+var errDenied = errors.New("invalid username or password")
 
 // uam is user authentication mechanism structure, essentially in-memory db of users that provide authenticate method :)
 type uam struct {
