@@ -7,6 +7,7 @@ import (
 	"io"
 	"log"
 	"net"
+	"os"
 	"sync"
 	"time"
 
@@ -37,6 +38,10 @@ func (s server) ListenAndServe(ctx context.Context, address string) error {
 	go func() {
 		<-ctx.Done()
 		_ = ls.Close()
+
+		// deadline to waiting graceful shutdown
+		time.Sleep(time.Minute)
+		os.Exit(0)
 	}()
 
 	var wg sync.WaitGroup
