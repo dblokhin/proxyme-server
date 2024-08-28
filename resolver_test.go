@@ -149,6 +149,9 @@ func Test_resolver_LookupIP(t *testing.T) {
 			r := &resolver{
 				resolver: tt.fields.resolver,
 				cache:    tt.fields.cache,
+				sg: &singleflight[string, []net.IP]{
+					queue: make(map[string]chan *singleflightResult[[]net.IP]),
+				},
 			}
 			got, err := r.LookupIP(tt.args.ctx, tt.args.network, tt.args.host)
 			if err := tt.check(got, err); err != nil {
