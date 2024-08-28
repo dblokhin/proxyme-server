@@ -4,8 +4,8 @@
 [![Docker Pulls](https://img.shields.io/docker/pulls/dblokhin/proxyme)](https://hub.docker.com/r/dblokhin/proxyme)
 [![Docker Image Size](https://img.shields.io/docker/image-size/dblokhin/proxyme)](https://hub.docker.com/r/dblokhin/proxyme)
 
-This is an efficient and lightweight implementation of a Socks5 Proxy. The proxy supports key features like CONNECT, BIND, and AUTH (both with and without username/password 
-authentication, and GSSAPI SOCKS5 authentication flow).
+This is an efficient and lightweight implementation of a SOCKS5 Proxy. The proxy supports key features like CONNECT, BIND, and AUTH (both with and without username/password 
+authentication).
 
 ## Project Status
 This project is currently **active** and maintained. We aim to continually improve its performance and feature set. 
@@ -16,12 +16,10 @@ This project fully implements all the requirements outlined in the specification
 with the exception of the UDP ASSOCIATE command and GSSAPI auth method, which may be implemented in the future.
 
 - **CONNECT command**: Standard command for connecting to a destination server.
-- **Custom CONNECT**: Allows creating customs tunnels to destination server.
 - **BIND command**: Allows incoming connections on a specified IP and port.
 - **AUTH support**:
     - No authentication (anonymous access)
     - Username/Password authentication 
-    - plan: GSSAPI SOCKS5 protocol flow (rfc1961)
 
 ## Getting Started
 ### Environment Variables
