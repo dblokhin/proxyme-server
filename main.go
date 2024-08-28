@@ -11,6 +11,7 @@ import (
 	"net"
 	"os"
 	"os/signal"
+	"strconv"
 	"syscall"
 	"time"
 
@@ -65,7 +66,7 @@ func runMain(ctx context.Context) error {
 }
 
 // customConnect connects to remote server using dns resolver with lru cache
-func customConnect(addressType int, addr []byte, port string) (net.Conn, error) {
+func customConnect(addressType int, addr []byte, port int) (net.Conn, error) {
 	const (
 		maxConnTime = 10 * time.Second
 		domainType  = 3
@@ -85,7 +86,7 @@ func customConnect(addressType int, addr []byte, port string) (net.Conn, error) 
 		ip = dip
 	}
 
-	dialAddr := net.JoinHostPort(ip.String(), port)
+	dialAddr := net.JoinHostPort(ip.String(), strconv.Itoa(port))
 
 	d := net.Dialer{}
 	conn, err := d.DialContext(ctx, "tcp", dialAddr)

@@ -35,10 +35,9 @@ func parseOptions() (proxyme.Options, error) {
 	}
 
 	// enable BIND operation if given
-	var customBind func() (net.Listener, error)
+	var customListen func() (net.Listener, error)
 	if bind := os.Getenv(envBindIP); bind != "" {
-		customBind = func() (net.Listener, error) {
-			fmt.Println("bind is called!")
+		customListen = func() (net.Listener, error) {
 			return net.Listen("tcp", fmt.Sprintf("%s:0", bind))
 		}
 	}
@@ -49,7 +48,7 @@ func parseOptions() (proxyme.Options, error) {
 		Authenticate: authenticate,
 		GSSAPI:       nil,
 		Connect:      customConnect,
-		Bind:         customBind,
+		Listen:       customListen,
 	}
 
 	return opts, nil
