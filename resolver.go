@@ -12,7 +12,7 @@ const maxCacheSize = 3000 // todo: parametrize
 var defaultResolver = resolver{
 	resolver: net.DefaultResolver,
 	sg: &singleflight[string, []net.IP]{
-		queue: make(map[string]chan *singleflightResult[[]net.IP]),
+		m: make(map[string]*singleflightResult[[]net.IP]),
 	},
 	cache: newSyncCache[string, []net.IP](maxCacheSize),
 }

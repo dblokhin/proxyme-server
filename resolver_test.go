@@ -150,7 +150,7 @@ func Test_resolver_LookupIP(t *testing.T) {
 				resolver: tt.fields.resolver,
 				cache:    tt.fields.cache,
 				sg: &singleflight[string, []net.IP]{
-					queue: make(map[string]chan *singleflightResult[[]net.IP]),
+					m: make(map[string]*singleflightResult[[]net.IP]),
 				},
 			}
 			got, err := r.LookupIP(tt.args.ctx, tt.args.network, tt.args.host)

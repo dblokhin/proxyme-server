@@ -9,7 +9,7 @@ import (
 
 func TestDoDupSuppress(t *testing.T) {
 	g := singleflight[string, any]{
-		queue: make(map[string]chan *singleflightResult[any]),
+		m: make(map[string]*singleflightResult[any]),
 	}
 
 	// THIS CODE is taken from golang.org/x/sync@v0.8.0/singleflight/singleflight_test.go

@@ -4,8 +4,8 @@ import "sync"
 
 // singleflight that forgets right after the main thread executed
 type singleflight[K comparable, T any] struct {
-	mu    sync.Mutex
-	queue map[K]chan *singleflightResult[T]
+	mu sync.Mutex
+	m  map[K]*singleflightResult[T]
 }
 
 type singleflightResult[T any] struct {
@@ -14,51 +14,33 @@ type singleflightResult[T any] struct {
 	done chan any
 }
 
-func (r *singleflightResult[T]) Result(value T, err error) {
-	r.v, r.e = value, err
-	close(r.done)
-}
-
 func (s *singleflight[K, T]) Do(key K, fn func() (T, error)) (T, error) {
 	s.mu.Lock()
 
-	if qu, ok := s.queue[key]; ok {
+	if result, ok := s.m[key]; ok {
 		s.mu.Unlock()
-		res := &singleflightResult[T]{
-			done: make(chan any),
-		}
-		qu <- res
+		<-result.done
 
-		<-res.done
-
-		select {
-		case next := <-qu:
-			next.Result(res.v, res.e)
-		default:
-		}
-
-		return res.v, res.e
+		return result.v, result.e
 	}
 
-	// make queue
-	queue := make(chan *singleflightResult[T])
-	s.queue[key] = queue
+	result := &singleflightResult[T]{
+		done: make(chan any),
+	}
+	s.m[key] = result
 	s.mu.Unlock()
 
 	// run the code
 	res, err := fn()
+	result.v, result.e = res, err
 
 	// forget key
 	s.mu.Lock()
-	delete(s.queue, key)
+	delete(s.m, key)
 	s.mu.Unlock()
 
-	// free queue
-	select {
-	case next := <-queue:
-		next.Result(res, err)
-	default:
-	}
+	// let waiters go
+	close(result.done)
 
 	return res, err
 }
