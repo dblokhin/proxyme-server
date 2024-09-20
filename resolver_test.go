@@ -3,6 +3,7 @@ package main
 import (
 	"context"
 	"fmt"
+	lru "github.com/hashicorp/golang-lru/v2"
 	"io"
 	"net"
 	"reflect"
@@ -27,7 +28,7 @@ func Test_resolver_LookupIP(t *testing.T) {
 		resolver interface {
 			LookupIP(ctx context.Context, network, host string) ([]net.IP, error)
 		}
-		cache *syncLRU[string, []net.IP]
+		cache *lru.Cache[string, []net.IP]
 	}
 	type args struct {
 		ctx     context.Context

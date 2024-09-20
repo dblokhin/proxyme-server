@@ -5,6 +5,8 @@ import (
 	"fmt"
 	"math/rand"
 	"net"
+
+	lru "github.com/hashicorp/golang-lru/v2"
 )
 
 const maxCacheSize = 3000 // todo: parametrize
@@ -17,12 +19,21 @@ var defaultResolver = resolver{
 	cache: newSyncCache[string, []net.IP](maxCacheSize),
 }
 
+func newSyncCache[K comparable, V any](size int) *lru.Cache[K, V] {
+	c, err := lru.New[K, V](size)
+	if err != nil {
+		panic(err)
+	}
+
+	return c
+}
+
 type resolver struct {
 	resolver interface {
 		LookupIP(ctx context.Context, network, host string) ([]net.IP, error)
 	}
 	sg    *singleflight[string, []net.IP]
-	cache *syncLRU[string, []net.IP]
+	cache *lru.Cache[string, []net.IP]
 }
 
 // LookupIP resolves domain name
