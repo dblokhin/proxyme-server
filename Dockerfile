@@ -7,8 +7,7 @@ RUN CGO_ENABLED=0 go build -o proxyme .
 
 # runner
 FROM scratch
-COPY --from=builder /etc/passwd /etc/passwd
-USER nobody
+USER 1000:1000
 
 WORKDIR /
 COPY --from=builder /app/proxyme .
