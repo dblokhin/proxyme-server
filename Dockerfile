@@ -1,5 +1,9 @@
 # build
-FROM golang:1.23-alpine AS builder
+FROM docker.io/library/golang:1.23-alpine AS builder
+
+RUN apk update && apk add --no-cache \
+        ca-certificates \
+        tzdata
 
 WORKDIR /app
 COPY . .

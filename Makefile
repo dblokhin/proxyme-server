@@ -39,10 +39,13 @@ deps:
 cover:
 	goveralls
 
+docker-pub:
+	docker buildx build --platform linux/amd64,linux/arm64 -t docker.io/dblokhin/$(BINARY_NAME):latest -t docker.io/dblokhin/$(BINARY_NAME):$(shell git describe --tags --abbrev=0) --push .
+
 docker-build:
 	docker build -t $(BINARY_NAME) .
 
 docker-run:
 	docker run --rm -it -p 1080:1080 -e PROXY_NOAUTH=yes $(BINARY_NAME)
 
-.PHONY: build clean test run fmt lint deps cover docker-build docker-run
+.PHONY: build clean test run fmt lint deps cover docker-pub docker-build docker-run
