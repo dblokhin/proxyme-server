@@ -7,13 +7,13 @@ RUN apk update && apk add --no-cache \
 
 WORKDIR /app
 COPY . .
-RUN CGO_ENABLED=0 go build -o proxyme .
+RUN CGO_ENABLED=0 go build -ldflags "-s -w" -a -o proxyme .
 
 # runner
 FROM scratch
-USER 1000:1000
 
-WORKDIR /
+WORKDIR /app
 COPY --from=builder /app/proxyme .
+USER 1000:1000
 
 ENTRYPOINT ["./proxyme"]
