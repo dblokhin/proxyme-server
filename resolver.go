@@ -5,27 +5,22 @@ import (
 	"fmt"
 	"math/rand"
 	"net"
+	"time"
 
-	lru "github.com/hashicorp/golang-lru/v2"
+	"github.com/hashicorp/golang-lru/v2/expirable"
 )
 
-const maxCacheSize = 3000 // todo: parametrize
+const (
+	dnsCacheSize = 3000 // todo: parametrize
+	dnsCacheTTL  = 24 * time.Hour
+)
 
 var defaultResolver = resolver{
 	resolver: net.DefaultResolver,
 	sg: &singleflight[string, []net.IP]{
 		m: make(map[string]*singleflightResult[[]net.IP]),
 	},
-	cache: newSyncCache[string, []net.IP](maxCacheSize),
-}
-
-func newSyncCache[K comparable, V any](size int) *lru.Cache[K, V] {
-	c, err := lru.New[K, V](size)
-	if err != nil {
-		panic(err)
-	}
-
-	return c
+	cache: expirable.NewLRU[string, []net.IP](dnsCacheSize, nil, dnsCacheTTL),
 }
 
 type resolver struct {
@@ -33,7 +28,7 @@ type resolver struct {
 		LookupIP(ctx context.Context, network, host string) ([]net.IP, error)
 	}
 	sg    *singleflight[string, []net.IP]
-	cache *lru.Cache[string, []net.IP]
+	cache *expirable.LRU[string, []net.IP]
 }
 
 // LookupIP resolves domain name

@@ -3,11 +3,12 @@ package main
 import (
 	"context"
 	"fmt"
-	lru "github.com/hashicorp/golang-lru/v2"
 	"io"
 	"net"
 	"reflect"
 	"testing"
+
+	"github.com/hashicorp/golang-lru/v2/expirable"
 )
 
 type fakeResolver struct {
@@ -28,7 +29,7 @@ func Test_resolver_LookupIP(t *testing.T) {
 		resolver interface {
 			LookupIP(ctx context.Context, network, host string) ([]net.IP, error)
 		}
-		cache *lru.Cache[string, []net.IP]
+		cache *expirable.LRU[string, []net.IP]
 	}
 	type args struct {
 		ctx     context.Context
@@ -49,7 +50,7 @@ func Test_resolver_LookupIP(t *testing.T) {
 						return append([]net.IP{}, localhost), nil
 					},
 				},
-				cache: newSyncCache[string, []net.IP](100),
+				cache: expirable.NewLRU[string, []net.IP](100, nil, dnsCacheTTL),
 			},
 			args: args{},
 			check: func(ip []net.IP, err error) error {
@@ -72,7 +73,7 @@ func Test_resolver_LookupIP(t *testing.T) {
 						return append([]net.IP{}, ips...), nil
 					},
 				},
-				cache: newSyncCache[string, []net.IP](100),
+				cache: expirable.NewLRU[string, []net.IP](100, nil, dnsCacheTTL),
 			},
 			args: args{},
 			check: func(ip []net.IP, err error) error {
@@ -95,7 +96,7 @@ func Test_resolver_LookupIP(t *testing.T) {
 						return nil, nil
 					},
 				},
-				cache: newSyncCache[string, []net.IP](100),
+				cache: expirable.NewLRU[string, []net.IP](100, nil, dnsCacheTTL),
 			},
 			args: args{},
 			check: func(ip []net.IP, err error) error {
@@ -114,7 +115,7 @@ func Test_resolver_LookupIP(t *testing.T) {
 						return nil, nil
 					},
 				},
-				cache: newSyncCache[string, []net.IP](100),
+				cache: expirable.NewLRU[string, []net.IP](100, nil, dnsCacheTTL),
 			},
 			args: args{},
 			check: func(ip []net.IP, err error) error {
@@ -133,7 +134,7 @@ func Test_resolver_LookupIP(t *testing.T) {
 						return nil, io.EOF
 					},
 				},
-				cache: newSyncCache[string, []net.IP](100),
+				cache: expirable.NewLRU[string, []net.IP](100, nil, dnsCacheTTL),
 			},
 			args: args{},
 			check: func(ip []net.IP, err error) error {
