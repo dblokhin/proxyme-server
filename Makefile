@@ -16,7 +16,7 @@ build:
 	$(GOBUILD) -o $(BINARY_NAME) .
 
 run:
-	$(GO) run .
+	PROXY_NOAUTH=yes $(GO) run .
 
 test:
 	$(GOTEST) -cover -count=1 ./...

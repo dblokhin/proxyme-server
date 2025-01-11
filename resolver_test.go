@@ -3,6 +3,7 @@ package main
 import (
 	"context"
 	"fmt"
+	"golang.org/x/sync/singleflight"
 	"io"
 	"net"
 	"reflect"
@@ -151,9 +152,7 @@ func Test_resolver_LookupIP(t *testing.T) {
 			r := &resolver{
 				resolver: tt.fields.resolver,
 				cache:    tt.fields.cache,
-				sg: &singleflight[string, []net.IP]{
-					m: make(map[string]*singleflightResult[[]net.IP]),
-				},
+				sg:       new(singleflight.Group),
 			}
 			got, err := r.LookupIP(tt.args.ctx, tt.args.network, tt.args.host)
 			if err := tt.check(got, err); err != nil {

@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/hashicorp/golang-lru/v2/expirable"
+	"golang.org/x/sync/singleflight"
 )
 
 const (
@@ -17,17 +18,15 @@ const (
 
 var defaultResolver = resolver{
 	resolver: net.DefaultResolver,
-	sg: &singleflight[string, []net.IP]{
-		m: make(map[string]*singleflightResult[[]net.IP]),
-	},
-	cache: expirable.NewLRU[string, []net.IP](dnsCacheSize, nil, dnsCacheTTL),
+	sg:       new(singleflight.Group),
+	cache:    expirable.NewLRU[string, []net.IP](dnsCacheSize, nil, dnsCacheTTL),
 }
 
 type resolver struct {
 	resolver interface {
 		LookupIP(ctx context.Context, network, host string) ([]net.IP, error)
 	}
-	sg    *singleflight[string, []net.IP]
+	sg    *singleflight.Group
 	cache *expirable.LRU[string, []net.IP]
 }
 
@@ -39,7 +38,7 @@ func (r *resolver) LookupIP(ctx context.Context, network, host string) ([]net.IP
 		return ips, nil
 	}
 
-	return r.sg.Do(key, func() ([]net.IP, error) {
+	res, err, _ := r.sg.Do(key, func() (interface{}, error) {
 		ips, err := r.resolver.LookupIP(ctx, network, host)
 		if err != nil {
 			return nil, err
@@ -50,9 +49,16 @@ func (r *resolver) LookupIP(ctx context.Context, network, host string) ([]net.IP
 		}
 
 		r.cache.Add(key, ips)
+		r.sg.Forget(key)
 
 		return ips, nil
 	})
+
+	if res != nil {
+		return res.([]net.IP), err
+	}
+
+	return nil, err
 }
 
 func defaultDomainResolver(ctx context.Context, domain []byte) (net.IP, error) {
