@@ -7,7 +7,6 @@ import (
 	"io"
 	"log"
 	"net"
-	"os"
 	"sync"
 	"time"
 
@@ -32,16 +31,13 @@ func (s server) ListenAndServe(ctx context.Context, address string) error {
 	lc := net.ListenConfig{}
 	ls, err := lc.Listen(ctx, "tcp", address)
 	if err != nil {
-		return err
+		return fmt.Errorf("listen: %w", err)
 	}
 
 	go func() {
+		// don't forget to close listener by ctx
 		<-ctx.Done()
 		_ = ls.Close()
-
-		// deadline to waiting graceful shutdown
-		time.Sleep(time.Minute)
-		os.Exit(0)
 	}()
 
 	var wg sync.WaitGroup
@@ -65,12 +61,12 @@ func (s server) ListenAndServe(ctx context.Context, address string) error {
 		wg.Add(1)
 		go func() {
 			defer wg.Done()
-			s.serve(conn.(*net.TCPConn))
+			s.serve(ctx, conn.(*net.TCPConn))
 		}()
 	}
 }
 
-func (s server) serve(tcpConn *net.TCPConn) {
+func (s server) serve(ctx context.Context, tcpConn *net.TCPConn) {
 	_ = tcpConn.SetLinger(0)
 	_ = tcpConn.SetKeepAliveConfig(keepAliveConfig)
 
@@ -80,12 +76,23 @@ func (s server) serve(tcpConn *net.TCPConn) {
 		timeout: time.Hour,
 	}
 
-	defer conn.Close() //nolint
+	done := make(chan any)
 
 	// run socks
-	s.protocol.Handle(conn, func(err error) {
-		log.Println(err)
-	})
+	go func() {
+		s.protocol.Handle(conn, func(err error) {
+			log.Println(err)
+		})
+
+		close(done)
+	}()
+
+	select {
+	case <-ctx.Done():
+	case <-done:
+	}
+
+	_ = conn.Close()
 }
 
 type tcpConnWithTimeout struct {
