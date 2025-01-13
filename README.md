@@ -30,6 +30,7 @@ The project supports the following environment variables to configure the proxy 
 - `PROXY_BIND_IP`: The IP address to use for BIND operations in the SOCKS5 protocol. This should be a public IP address that can accept incoming connections. (Default: disabled)
 - `PROXY_NOAUTH`: If set to yes, true, or 1, allows unauthenticated access to the proxy. (Default: disabled)
 - `PROXY_USERS`: A comma-separated list of username and password pairs for authentication (in the format user:pass,user2:pass2). If this is set, the proxy enables SOCKS5 username/password authentication.
+- `METRICS_LISTEN_ADDR`: If specified (host:port) starts metrics server for Prometheus scraper (Default: empty, means disabled. Example: "METRICS_LISTEN_ADDR=:8081")
 
 At least one SOCKS5 auth method (noauth or username/password) must be specified.
 

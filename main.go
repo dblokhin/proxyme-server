@@ -19,19 +19,27 @@ import (
 )
 
 const (
-	envHost   = "PROXY_HOST"    // proxy host to listen to
-	envPort   = "PROXY_PORT"    // port number, 1080 defaults
-	envBindIP = "PROXY_BIND_IP" // ipv4/ipv6 address to make BIND socks5 operations
-	envNoAuth = "PROXY_NOAUTH"  // yes, true, 1
-	envUsers  = "PROXY_USERS"   // user:pass,user2:pass2
+	envHost          = "PROXY_HOST"          // proxy host to listen to
+	envPort          = "PROXY_PORT"          // port number, 1080 defaults
+	envBindIP        = "PROXY_BIND_IP"       // ipv4/ipv6 address to make BIND socks5 operations
+	envNoAuth        = "PROXY_NOAUTH"        // yes, true, 1
+	envUsers         = "PROXY_USERS"         // user:pass,user2:pass2
+	envMetricsListen = "METRICS_LISTEN_ADDR" // TCP address for the server to listen on in the form "host:port"
 )
 
 func main() {
 	ctx, _ := signal.NotifyContext(context.TODO(), syscall.SIGTERM, syscall.SIGINT)
 
+	addr := os.Getenv(envMetricsListen)
+	ms := runMetrics(addr)
+
 	go func() {
 		<-ctx.Done()
 		log.Println("shutdown proxyme")
+
+		if err := stopMetrics(ms); err != nil {
+			log.Println("shutdown metrics server:", err)
+		}
 	}()
 
 	if err := runMain(ctx); err != nil {
